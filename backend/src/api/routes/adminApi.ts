@@ -583,14 +583,18 @@ router.get('/members', requireAdmin, async (req: Request, res: Response) => {
         discordMembers = [];
       }
     } else {
-      // Cursor-based list — Discord members.list() returns up to 1000, we page ourselves
+      // Cursor-based list — Discord members.list() returns up to limit, we page ourselves
       const fetchOptions: Parameters<typeof discordGuild.members.list>[0] = { limit };
       if (after) (fetchOptions as any).after = after;
       // Username query filter (Discord API fuzzy-matches displayName)
       if (query) (fetchOptions as any).query = query;
 
       const col = await discordGuild.members.list(fetchOptions);
+      const rawCount = col.size; // track BEFORE bot filter
       discordMembers = [...col.values()].filter((m) => !m.user.bot);
+
+      // Store raw count to determine if there are more pages
+      (discordMembers as any).__rawCount = rawCount;
     }
 
     // Build map of discord_id -> verification from DB for this guild
@@ -625,9 +629,10 @@ router.get('/members', requireAdmin, async (req: Request, res: Response) => {
       };
     });
 
-    // Cursor = last member's discordId (only when not a single-member or username search)
+    // Cursor = last member's discordId (only when not a search and Discord returned a full page)
     const isSearchMode = !!query;
-    const nextCursor = !isSearchMode && members.length === limit
+    const rawCount: number = (discordMembers as any).__rawCount ?? discordMembers.length;
+    const nextCursor = !isSearchMode && rawCount >= limit && members.length > 0
       ? members[members.length - 1].discordId
       : null;
 
