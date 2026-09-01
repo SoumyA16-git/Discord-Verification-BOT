@@ -25,9 +25,13 @@ for (const cmd of commands) {
 
 export async function handleInteraction(interaction: Interaction): Promise<void> {
   if (interaction.isButton()) {
-    if (interaction.customId === 'start_verification') {
+    if (interaction.customId === 'start_verification' || interaction.customId.startsWith('start_verification_')) {
       try {
-        await verifyCommand.execute(interaction);
+        let guildIdOverride: string | undefined = undefined;
+        if (interaction.customId.startsWith('start_verification_')) {
+          guildIdOverride = interaction.customId.split('start_verification_')[1];
+        }
+        await verifyCommand.execute(interaction, guildIdOverride);
       } catch (err) {
         logger.error({ err }, 'Error handling persistent verify button click');
         if (interaction.replied || interaction.deferred) {

@@ -22,20 +22,34 @@ export const data = new SlashCommandBuilder()
   .setDescription('Start the verification process to gain verified server access.')
   .setDMPermission(false);
 
-export async function execute(interaction: ChatInputCommandInteraction | ButtonInteraction): Promise<void> {
+export async function execute(
+  interaction: ChatInputCommandInteraction | ButtonInteraction,
+  guildIdOverride?: string
+): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
-  if (!interaction.guild || !interaction.member) {
-    await interaction.editReply({ content: 'This command can only be used inside a server.' });
+  const discordUserId = interaction.user.id;
+  const discordGuildId = interaction.guild?.id || guildIdOverride;
+
+  if (!discordGuildId) {
+    await interaction.editReply({ content: 'This command must be used inside a server or from an official DM prompt.' });
     return;
   }
 
+  let discordGuild = interaction.guild;
+  if (!discordGuild) {
+    try {
+      discordGuild = await interaction.client.guilds.fetch(discordGuildId);
+    } catch (err) {
+      await interaction.editReply({ content: 'Failed to find the server associated with this verification prompt.' });
+      return;
+    }
+  }
+
   const env = getEnv();
-  const discordUserId = interaction.user.id;
-  const discordGuildId = interaction.guild.id;
 
   try {
-    const guild = await upsertGuild(discordGuildId, interaction.guild.name);
+    const guild = await upsertGuild(discordGuildId, discordGuild.name);
     const user = await upsertUser(discordUserId, interaction.user.username);
     if (!user) {
       await interaction.editReply({ content: 'Failed to initialize user session.' });
@@ -58,7 +72,7 @@ export async function execute(interaction: ChatInputCommandInteraction | ButtonI
     }
 
     const existingVerif = await getVerification(user.id, guild.id);
-    const member = await interaction.guild.members.fetch(discordUserId).catch(() => null);
+    const member = await discordGuild.members.fetch(discordUserId).catch(() => null);
     const hasRole = member?.roles.cache.has(config.verified_role_id);
 
     if (existingVerif && existingVerif.status === 'VERIFIED' && hasRole) {

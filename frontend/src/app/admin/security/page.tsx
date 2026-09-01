@@ -78,10 +78,10 @@ function SecurityContent() {
           <div style={{ fontSize: '3rem', fontWeight: 800, color: 'var(--color-emerald)', lineHeight: 1.1, margin: '0.5rem 0' }}>
             {securityScore} <span style={{ fontSize: '1.5rem', color: 'var(--text-muted)' }}>/ 100</span>
           </div>
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {securityScore >= 95
-              ? '🛡️ Optimal Protection: No active raid or authentication anomalies detected.'
-              : '⚠️ Moderate Warnings: Review failed verification attempts.'}
+              ? <><ShieldCheck size={16} /> Optimal Protection: No active raid or authentication anomalies detected.</>
+              : <><AlertTriangle size={16} /> Moderate Warnings: Review failed verification attempts.</>}
           </div>
         </div>
 

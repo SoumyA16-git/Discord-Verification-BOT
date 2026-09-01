@@ -412,7 +412,7 @@ router.post('/guilds/:guildId/send-verification-message', requireAdmin, async (r
   const textChannel = channel as TextChannel;
 
   const embed = new EmbedBuilder()
-    .setTitle(`🛡️ ${discordGuild.name} Member Verification`)
+    .setTitle(`${discordGuild.name} Member Verification`)
     .setDescription(
       config.verification_message ||
         'Welcome! To prevent spam and access all server channels, please complete verification with your Discord account.\n\nClick the button below to begin.'

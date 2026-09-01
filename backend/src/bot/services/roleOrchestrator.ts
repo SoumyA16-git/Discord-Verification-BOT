@@ -1,4 +1,4 @@
-import { Guild, PermissionFlagsBits, ChannelType } from 'discord.js';
+import { Guild, PermissionFlagsBits, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { upsertGuildConfig } from '../../database/queries/guildConfig.js';
 import { logger } from '../../utils/logger.js';
 
@@ -145,7 +145,7 @@ export async function autoProvisionServerRoles(guild: Guild, dbGuildId: string):
         // Check if there's already a message to avoid spamming on re-setup
         const messages = await textChannel.messages.fetch({ limit: 1 }).catch(() => null);
         if (!messages || messages.size === 0) {
-          const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+
           const embed = new EmbedBuilder()
             .setTitle('Server Verification')
             .setColor(0x5865F2)
@@ -155,7 +155,6 @@ export async function autoProvisionServerRoles(guild: Guild, dbGuildId: string):
           const button = new ButtonBuilder()
             .setCustomId('start_verification')
             .setLabel('Verify Account')
-            .setEmoji('✅')
             .setStyle(ButtonStyle.Primary);
             
           const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);

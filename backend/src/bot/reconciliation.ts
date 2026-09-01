@@ -68,7 +68,7 @@ export async function runReconciliationSweep(): Promise<void> {
               const logChan = await discordGuild.channels.fetch(config.log_channel_id).catch(() => null);
               if (logChan && logChan.isTextBased()) {
                 (logChan as TextChannel).send({
-                  content: `⚠️ **Reconciliation Alert:** Failed to re-assign Verified Role to <@${user.discord_id}>: ${roleResult.error}`,
+                  content: `**Reconciliation Alert:** Failed to re-assign Verified Role to <@${user.discord_id}>: ${roleResult.error}`,
                 }).catch(() => {});
               }
             }

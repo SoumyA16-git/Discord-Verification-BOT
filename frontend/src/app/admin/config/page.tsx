@@ -283,7 +283,7 @@ function ConfigContent() {
                   <option value="">-- Select Verified Role --</option>
                   {discordData.roles.map((r) => (
                     <option key={r.id} value={r.id}>
-                      @{r.name} {!r.isBelowBot ? '⚠️ (Higher than Bot)' : ''}
+                      @{r.name} {!r.isBelowBot ? '(Warning: Higher than Bot)' : ''}
                     </option>
                   ))}
                 </select>

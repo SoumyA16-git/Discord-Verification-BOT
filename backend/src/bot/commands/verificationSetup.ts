@@ -53,7 +53,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (!check.valid) {
       const errorMsg = (check.errors || []).join('\n• ');
       await interaction.reply({
-        content: `⚠️ **Permission Warning:**\n• ${errorMsg}\n\nPlease fix the role hierarchy or bot permissions and try again.`,
+        content: `**Permission Warning:**\n• ${errorMsg}\n\nPlease fix the role hierarchy or bot permissions and try again.`,
         ephemeral: true,
       });
       return;
