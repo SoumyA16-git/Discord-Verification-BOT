@@ -1,4 +1,4 @@
-import { Guild, PermissionFlagsBits, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { Guild, PermissionFlagsBits, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextChannel } from 'discord.js';
 import { upsertGuildConfig } from '../../database/queries/guildConfig.js';
 import { logger } from '../../utils/logger.js';
 
