@@ -411,24 +411,35 @@ router.post('/guilds/:guildId/send-verification-message', requireAdmin, async (r
 
   const textChannel = channel as TextChannel;
 
-  const embed = new EmbedBuilder()
-    .setTitle(`${discordGuild.name} Member Verification`)
-    .setDescription(
-      config.verification_message ||
-        'Welcome! To prevent spam and access all server channels, please complete verification with your Discord account.\n\nClick the button below to begin.'
-    )
-    .setColor(0x5865f2)
-    .setFooter({ text: 'Powered by Discord Verification Platform • Safe & Tamper-Proof' })
-    .setTimestamp();
-
-  const button = new ButtonBuilder()
-    .setLabel('Verify with Discord')
-    .setStyle(ButtonStyle.Link)
-    .setURL(`${env.FRONTEND_URL}/verify`);
-
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
-
   try {
+    // Delete previous messages sent by the bot in this channel for a "fresh" look
+    try {
+      const fetched = await textChannel.messages.fetch({ limit: 50 });
+      const botMessages = fetched.filter(m => m.author.id === client.user?.id);
+      for (const [, msg] of botMessages) {
+        await msg.delete().catch(() => {});
+      }
+    } catch (e) {
+      logger.warn({ err: e }, 'Failed to delete previous messages in verification channel');
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle(`${discordGuild.name} Member Verification`)
+      .setDescription(
+        config.verification_message ||
+          'Welcome to the server! To prevent automated spam and unlock all channels, please complete verification.\n\nClick the button below to get your unique verification link.'
+      )
+      .setColor(0x5865f2)
+      .setFooter({ text: 'Powered by Discord Verification Platform • Safe & Tamper-Proof' })
+      .setTimestamp();
+
+    const button = new ButtonBuilder()
+      .setCustomId(`start_verification_${guild.id}`)
+      .setLabel('Verify Account')
+      .setStyle(ButtonStyle.Primary);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
+
     await textChannel.send({ embeds: [embed], components: [row] });
 
     await createAuditLog({
