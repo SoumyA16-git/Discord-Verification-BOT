@@ -117,3 +117,16 @@ export async function listVerifiedInGuild(guildId: string): Promise<Verification
 
   return (data || []) as VerificationRow[];
 }
+
+export async function deleteVerification(userId: string, guildId: string): Promise<void> {
+  const db = getDb();
+  const { error } = await db
+    .from('verifications')
+    .delete()
+    .eq('user_id', userId)
+    .eq('guild_id', guildId);
+
+  if (error) {
+    throw new Error(`Failed to delete verification: ${error.message}`);
+  }
+}

@@ -1,7 +1,21 @@
 {
-  "/verify/page": "app/verify/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/page": "app/page.js",
+  "/auth/callback/page": "app/auth/callback/page.js",
+  "/verify/failure/page": "app/verify/failure/page.js",
+  "/verify/already/page": "app/verify/already/page.js",
+  "/verify/page": "app/verify/page.js",
+  "/verify/expired/page": "app/verify/expired/page.js",
+  "/verify/success/page": "app/verify/success/page.js",
+  "/admin/config/page": "app/admin/config/page.js",
+  "/admin/members/page": "app/admin/members/page.js",
+  "/admin/health/page": "app/admin/health/page.js",
   "/admin/login/page": "app/admin/login/page.js",
   "/admin/logs/page": "app/admin/logs/page.js",
-  "/admin/page": "app/admin/page.js"
+  "/admin/page": "app/admin/page.js",
+  "/admin/analytics/page": "app/admin/analytics/page.js",
+  "/admin/members/[userId]/page": "app/admin/members/[userId]/page.js",
+  "/admin/servers/page": "app/admin/servers/page.js",
+  "/admin/builder/page": "app/admin/builder/page.js",
+  "/admin/security/page": "app/admin/security/page.js"
 }
