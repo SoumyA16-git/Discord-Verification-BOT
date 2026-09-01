@@ -1,0 +1,129 @@
+<%- include('../partials/header') %>
+
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <a href="/admin/members" class="text-sm highlight" style="display: inline-block; margin-bottom: 0.5rem;">&larr; Back to Members</a>
+    <h1><%= user.username || 'Member Detail' %></h1>
+    <p style="margin-bottom: 0; font-family: monospace;">Discord ID: <%= user.discord_id %></p>
+  </div>
+
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+    <% if (verification && verification.status === 'VERIFIED') { %>
+      <form action="/api/admin/members/<%= user.id %>/revoke" method="POST" onsubmit="return confirm('Revoke this member\'s verified role?');">
+        <button type="submit" class="btn btn-danger btn-sm">Revoke Verification</button>
+      </form>
+    <% } %>
+
+    <form action="/api/admin/members/<%= user.id %>/reverify" method="POST">
+      <button type="submit" class="btn btn-secondary btn-sm">Force Re-verification</button>
+    </form>
+
+    <% if (admin.role === 'owner' && (!verification || verification.status !== 'VERIFIED')) { %>
+      <form action="/api/admin/members/<%= user.id %>/verify" method="POST" onsubmit="return confirm('Manual override will directly assign the Verified role. Proceed?');">
+        <button type="submit" class="btn btn-primary btn-sm">Manual Verify (Override)</button>
+      </form>
+    <% } %>
+  </div>
+</div>
+
+<!-- Status Card -->
+<div class="card card-wide" style="margin-bottom: 2rem;">
+  <h2>Current Standing</h2>
+  <div style="display: flex; gap: 2rem; flex-wrap: wrap; margin-top: 1rem;">
+    <div>
+      <div class="stat-title">Status</div>
+      <span class="badge <%= verification && verification.status === 'VERIFIED' ? 'badge-verified' : (verification && (verification.status === 'REVOKED' || verification.status === 'FAILED') ? 'badge-failed' : 'badge-pending') %>">
+        <%= verification ? verification.status : 'UNVERIFIED' %>
+      </span>
+    </div>
+
+    <div>
+      <div class="stat-title">Role Confirmed</div>
+      <div><%= verification && verification.role_assigned ? 'Active on Discord' : 'Not Assigned' %></div>
+    </div>
+
+    <div>
+      <div class="stat-title">Verified Timestamp</div>
+      <div><%= verification && verification.verified_at ? new Date(verification.verified_at).toLocaleString() : 'N/A' %></div>
+    </div>
+
+    <div>
+      <div class="stat-title">First Seen</div>
+      <div><%= new Date(user.created_at).toLocaleDateString() %></div>
+    </div>
+  </div>
+</div>
+
+<!-- Attempts History -->
+<div style="margin-bottom: 2rem;">
+  <h2>Attempt History</h2>
+  <div class="table-wrapper" style="margin-top: 1rem;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Result</th>
+          <th>Failure Reason</th>
+          <th>IP Hash</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (attempts && attempts.length > 0) { %>
+          <% attempts.forEach(att => { %>
+            <tr>
+              <td style="color: var(--text-muted); font-size: 0.8rem;"><%= new Date(att.created_at).toLocaleString() %></td>
+              <td>
+                <span class="badge <%= att.result === 'SUCCESS' ? 'badge-verified' : 'badge-failed' %>">
+                  <%= att.result %>
+                </span>
+              </td>
+              <td><%= att.failure_reason || '—' %></td>
+              <td style="font-family: monospace; font-size: 0.75rem; color: var(--text-muted);"><%= att.ip_hash ? att.ip_hash.substring(0, 16) + '...' : 'N/A' %></td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr>
+            <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+              No attempts logged for this user.
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- User Audit Trail -->
+<div>
+  <h2>Audit Log Trail</h2>
+  <div class="table-wrapper" style="margin-top: 1rem;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Event</th>
+          <th>Metadata</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (auditLogs && auditLogs.length > 0) { %>
+          <% auditLogs.forEach(log => { %>
+            <tr>
+              <td style="color: var(--text-muted); font-size: 0.8rem;"><%= new Date(log.created_at).toLocaleString() %></td>
+              <td><span class="badge badge-pending"><%= log.event_type.replace(/_/g, ' ') %></span></td>
+              <td style="font-family: monospace; font-size: 0.8rem;"><%= JSON.stringify(log.metadata) %></td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr>
+            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+              No audit logs recorded for this user.
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

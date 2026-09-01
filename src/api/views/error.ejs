@@ -1,0 +1,28 @@
+<%- include('partials/header') %>
+
+<div class="center-container">
+  <div class="card">
+    <div class="status-icon-wrapper status-failure">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+      </svg>
+    </div>
+
+    <h1><%= typeof title !== 'undefined' ? title : 'An Error Occurred' %></h1>
+    <p>
+      <%= typeof message !== 'undefined' ? message : 'An unexpected error occurred while processing your request.' %>
+    </p>
+
+    <% if (typeof errorCode !== 'undefined') { %>
+      <div style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+        Error Reference: <%= errorCode %>
+      </div>
+    <% } %>
+
+    <a href="/" class="btn btn-secondary btn-block">
+      Go to Homepage
+    </a>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

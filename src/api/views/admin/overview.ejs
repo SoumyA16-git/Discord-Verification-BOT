@@ -1,0 +1,106 @@
+<%- include('../partials/header') %>
+
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1>Server Overview</h1>
+    <p style="margin-bottom: 0;">
+      Managing: <strong style="color: var(--text-primary);"><%= guild ? guild.name || guild.discord_guild_id : 'Default Guild' %></strong> &bull; Role: <span class="badge badge-verified"><%= admin.role %></span>
+    </p>
+  </div>
+  <div style="display: flex; gap: 0.75rem;">
+    <a href="/admin/config" class="btn btn-secondary btn-sm">Configure Roles</a>
+    <a href="/admin/members" class="btn btn-primary btn-sm">Manage Members</a>
+  </div>
+</div>
+
+<!-- Health Bar -->
+<div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem;">
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
+    <span style="width: 10px; height: 10px; border-radius: 50%; background: <%= health.botReady ? 'var(--discord-green)' : 'var(--discord-red)' %>; display: inline-block;"></span>
+    <span style="font-size: 0.85rem; font-weight: 600;">Discord Gateway: <%= health.botReady ? 'Connected' : 'Disconnected' %></span>
+  </div>
+
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
+    <span style="width: 10px; height: 10px; border-radius: 50%; background: <%= health.dbOk ? 'var(--discord-green)' : 'var(--discord-red)' %>; display: inline-block;"></span>
+    <span style="font-size: 0.85rem; font-weight: 600;">Supabase DB: <%= health.dbOk ? 'Healthy (' + health.dbLatencyMs + 'ms)' : 'Unreachable' %></span>
+  </div>
+
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
+    <span style="width: 10px; height: 10px; border-radius: 50%; background: <%= (guildConfig && guildConfig.verification_enabled) ? 'var(--discord-green)' : 'var(--discord-yellow)' %>; display: inline-block;"></span>
+    <span style="font-size: 0.85rem; font-weight: 600;">Gate Status: <%= (guildConfig && guildConfig.verification_enabled) ? 'Active' : 'Disabled' %></span>
+  </div>
+</div>
+
+<!-- Metrics Stats Grid -->
+<div class="grid-stats">
+  <div class="stat-card">
+    <div class="stat-title">Total Known Users</div>
+    <div class="stat-value"><%= metrics.totalUsers %></div>
+    <div class="stat-sub"><%= metrics.verifiedUsers %> Verified &bull; <%= metrics.unverifiedUsers %> Unverified</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-title">Attempts (Last 24 Hours)</div>
+    <div class="stat-value"><%= metrics.stats24h.total %></div>
+    <div class="stat-sub" style="color: var(--discord-green);"><%= metrics.stats24h.success %> Successful (<%= metrics.stats24h.failure %> failed)</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-title">Attempts (Last 30 Days)</div>
+    <div class="stat-value"><%= metrics.stats30d.total %></div>
+    <div class="stat-sub"><%= metrics.stats30d.success %> Successful (<%= metrics.stats30d.failure %> failed)</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-title">30-Day Success Rate</div>
+    <div class="stat-value" style="color: var(--discord-green);"><%= metrics.successRate %>%</div>
+    <div class="stat-sub">Based on completed OAuth flows</div>
+  </div>
+</div>
+
+<!-- Recent Activity Feed -->
+<div style="margin-top: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <h2>Recent Audit Activity</h2>
+    <a href="/admin/logs" class="text-sm highlight">View Full Logs &rarr;</a>
+  </div>
+
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Event Type</th>
+          <th>Subject / Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (recentLogs && recentLogs.length > 0) { %>
+          <% recentLogs.forEach(log => { %>
+            <tr>
+              <td style="color: var(--text-muted); font-size: 0.8rem; white-space: nowrap;">
+                <%= new Date(log.created_at).toLocaleString() %>
+              </td>
+              <td>
+                <span class="badge <%= log.event_type.includes('success') ? 'badge-verified' : (log.event_type.includes('failure') || log.event_type.includes('error') ? 'badge-failed' : 'badge-pending') %>">
+                  <%= log.event_type.replace(/_/g, ' ') %>
+                </span>
+              </td>
+              <td style="font-family: monospace; font-size: 0.8rem; color: var(--text-secondary);">
+                <%= JSON.stringify(log.metadata) %>
+              </td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr>
+            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+              No audit logs recorded yet.
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

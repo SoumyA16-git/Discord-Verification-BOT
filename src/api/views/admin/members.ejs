@@ -1,0 +1,66 @@
+<%- include('../partials/header') %>
+
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1>Member Management</h1>
+    <p style="margin-bottom: 0;">Search members by Discord ID or Username to inspect verification standing and history.</p>
+  </div>
+</div>
+
+<!-- Search Form -->
+<form action="/admin/members" method="GET" style="margin-bottom: 2rem; display: flex; gap: 0.75rem;">
+  <input type="text" name="q" value="<%= query %>" placeholder="Search by Discord Snowflake ID or Username..." class="form-input" style="max-width: 420px;">
+  <button type="submit" class="btn btn-primary">Search</button>
+  <% if (query) { %>
+    <a href="/admin/members" class="btn btn-secondary">Clear</a>
+  <% } %>
+</form>
+
+<!-- Member List Table -->
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Discord ID</th>
+        <th>Username</th>
+        <th>Status</th>
+        <th>Role Assigned</th>
+        <th>Verified At</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (members && members.length > 0) { %>
+        <% members.forEach(m => { 
+          const verif = m.verifications && m.verifications[0];
+          const status = verif ? verif.status : 'UNVERIFIED';
+        %>
+          <tr>
+            <td style="font-family: monospace; font-size: 0.85rem;"><%= m.discord_id %></td>
+            <td><strong><%= m.username || 'Unknown' %></strong></td>
+            <td>
+              <span class="badge <%= status === 'VERIFIED' ? 'badge-verified' : (status === 'REVOKED' || status === 'FAILED' ? 'badge-failed' : 'badge-pending') %>">
+                <%= status %>
+              </span>
+            </td>
+            <td><%= verif && verif.role_assigned ? 'Yes' : 'No' %></td>
+            <td style="color: var(--text-muted); font-size: 0.8rem;">
+              <%= verif && verif.verified_at ? new Date(verif.verified_at).toLocaleDateString() : '—' %>
+            </td>
+            <td>
+              <a href="/admin/members/<%= m.id %>" class="btn btn-secondary btn-sm">Inspect</a>
+            </td>
+          </tr>
+        <% }) %>
+      <% } else { %>
+        <tr>
+          <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
+            <%= query ? 'No members found matching your search.' : 'No members registered yet.' %>
+          </td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/footer') %>

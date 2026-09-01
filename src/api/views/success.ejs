@@ -1,0 +1,26 @@
+<%- include('partials/header') %>
+
+<div class="center-container">
+  <div class="card">
+    <div class="status-icon-wrapper status-success">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+      </svg>
+    </div>
+
+    <h1>Verification Successful!</h1>
+    <p>
+      Welcome <span class="highlight">@<%= username %></span>! Your Discord account has been verified and your Verified Role has been assigned in <strong style="color: var(--text-primary);"><%= guildName %></strong>.
+    </p>
+
+    <div class="alert alert-success">
+      You may now close this browser tab and return to Discord.
+    </div>
+
+    <a href="https://discord.com/channels/@me" class="btn btn-primary btn-block">
+      Return to Discord
+    </a>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

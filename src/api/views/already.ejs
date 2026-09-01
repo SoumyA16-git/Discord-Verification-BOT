@@ -1,0 +1,26 @@
+<%- include('partials/header') %>
+
+<div class="center-container">
+  <div class="card">
+    <div class="status-icon-wrapper status-already">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+      </svg>
+    </div>
+
+    <h1>Already Verified</h1>
+    <p>
+      You are already verified in <strong style="color: var(--text-primary);"><%= typeof guildName !== 'undefined' ? guildName : 'this Discord server' %></strong> and your Verified Role is currently active.
+    </p>
+
+    <div class="alert alert-info">
+      No further action is required. You have full access to the server.
+    </div>
+
+    <a href="https://discord.com/channels/@me" class="btn btn-primary btn-block">
+      Open Discord
+    </a>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

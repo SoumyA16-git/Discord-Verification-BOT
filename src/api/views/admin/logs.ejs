@@ -1,0 +1,91 @@
+<%- include('../partials/header') %>
+
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1>Audit Logs Feed</h1>
+    <p style="margin-bottom: 0;">Full auditable record of verification events, role modifications, and administrative actions.</p>
+  </div>
+</div>
+
+<!-- Filters -->
+<form action="/admin/logs" method="GET" style="margin-bottom: 2rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+  <div style="min-width: 250px;">
+    <select name="event" class="form-select" onchange="this.form.submit()">
+      <option value="">All Event Types</option>
+      <option value="member_joined" <%= selectedEvent === 'member_joined' ? 'selected' : '' %>>member_joined</option>
+      <option value="member_left" <%= selectedEvent === 'member_left' ? 'selected' : '' %>>member_left</option>
+      <option value="verification_started" <%= selectedEvent === 'verification_started' ? 'selected' : '' %>>verification_started</option>
+      <option value="oauth_success" <%= selectedEvent === 'oauth_success' ? 'selected' : '' %>>oauth_success</option>
+      <option value="oauth_failure" <%= selectedEvent === 'oauth_failure' ? 'selected' : '' %>>oauth_failure</option>
+      <option value="verification_success" <%= selectedEvent === 'verification_success' ? 'selected' : '' %>>verification_success</option>
+      <option value="verification_failure" <%= selectedEvent === 'verification_failure' ? 'selected' : '' %>>verification_failure</option>
+      <option value="role_assigned" <%= selectedEvent === 'role_assigned' ? 'selected' : '' %>>role_assigned</option>
+      <option value="role_assignment_failure" <%= selectedEvent === 'role_assignment_failure' ? 'selected' : '' %>>role_assignment_failure</option>
+      <option value="verification_revoked" <%= selectedEvent === 'verification_revoked' ? 'selected' : '' %>>verification_revoked</option>
+      <option value="admin_action" <%= selectedEvent === 'admin_action' ? 'selected' : '' %>>admin_action</option>
+      <option value="configuration_changed" <%= selectedEvent === 'configuration_changed' ? 'selected' : '' %>>configuration_changed</option>
+      <option value="suspicious_activity" <%= selectedEvent === 'suspicious_activity' ? 'selected' : '' %>>suspicious_activity</option>
+      <option value="bot_error" <%= selectedEvent === 'bot_error' ? 'selected' : '' %>>bot_error</option>
+    </select>
+  </div>
+  <% if (selectedEvent) { %>
+    <a href="/admin/logs" class="btn btn-secondary btn-sm">Reset Filter</a>
+  <% } %>
+</form>
+
+<!-- Logs Table -->
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>Event Type</th>
+        <th>Metadata &amp; Context</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (logs && logs.length > 0) { %>
+        <% logs.forEach(log => { %>
+          <tr>
+            <td style="color: var(--text-muted); font-size: 0.8rem; white-space: nowrap;">
+              <%= new Date(log.created_at).toLocaleString() %>
+            </td>
+            <td>
+              <span class="badge <%= log.event_type.includes('success') ? 'badge-verified' : (log.event_type.includes('failure') || log.event_type.includes('error') ? 'badge-failed' : 'badge-pending') %>">
+                <%= log.event_type.replace(/_/g, ' ') %>
+              </span>
+            </td>
+            <td style="font-family: monospace; font-size: 0.8rem; color: var(--text-secondary);">
+              <%= JSON.stringify(log.metadata) %>
+            </td>
+          </tr>
+        <% }) %>
+      <% } else { %>
+        <tr>
+          <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
+            No audit logs found.
+          </td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination Controls -->
+<% if (totalPages > 1) { %>
+  <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 2rem;">
+    <% if (currentPage > 1) { %>
+      <a href="/admin/logs?page=<%= currentPage - 1 %><%= selectedEvent ? '&event=' + selectedEvent : '' %>" class="btn btn-secondary btn-sm">&larr; Previous</a>
+    <% } %>
+
+    <span style="display: inline-flex; align-items: center; padding: 0 1rem; font-size: 0.85rem; color: var(--text-muted);">
+      Page <%= currentPage %> of <%= totalPages %>
+    </span>
+
+    <% if (currentPage < totalPages) { %>
+      <a href="/admin/logs?page=<%= currentPage + 1 %><%= selectedEvent ? '&event=' + selectedEvent : '' %>" class="btn btn-secondary btn-sm">Next &rarr;</a>
+    <% } %>
+  </div>
+<% } %>
+
+<%- include('../partials/footer') %>
