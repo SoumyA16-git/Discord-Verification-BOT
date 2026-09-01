@@ -14,9 +14,8 @@ import { ArrowLeft, Check, Copy } from 'lucide-react';
 function MemberDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
+  // userId is now a Discord Snowflake ID (passed from the members list)
   const userId = params.userId as string;
-
-  // Carry the active guildId so the API fetches the right guild's verification data
   const guildId = searchParams.get('guildId') || undefined;
 
   const [data, setData] = useState<any>(null);
@@ -33,12 +32,12 @@ function MemberDetailContent() {
     try {
       const res = await getAdminMemberDetail(token, userId, guildId);
       if (res.error) {
-        setError(res.error.message);
+        setError(res.error.message || 'Failed to fetch member details.');
       } else {
         setData(res);
       }
     } catch {
-      setError('Failed to fetch member details.');
+      setError('Failed to connect to backend.');
     } finally {
       setLoading(false);
     }
@@ -52,7 +51,9 @@ function MemberDetailContent() {
   const handleRevoke = async () => {
     if (!confirm("Are you sure you want to revoke this member's verification?")) return;
     const token = localStorage.getItem('dverif_admin_token') || '';
-    const res = await adminRevokeUser(token, userId, 'Admin Revocation', guildId);
+    // Use internal DB id if available, otherwise snowflake
+    const targetId = data?.user?.id || userId;
+    const res = await adminRevokeUser(token, targetId, 'Admin Revocation', guildId);
     if (res.success) {
       setActionSuccess('Verification successfully revoked.');
       fetchDetail();
@@ -64,7 +65,8 @@ function MemberDetailContent() {
   const handleManualVerify = async () => {
     if (!confirm('Manual override will immediately assign the verified role on Discord. Proceed?')) return;
     const token = localStorage.getItem('dverif_admin_token') || '';
-    const res = await adminVerifyUser(token, userId, guildId);
+    const targetId = data?.user?.id || userId;
+    const res = await adminVerifyUser(token, targetId, guildId);
     if (res.success) {
       setActionSuccess('Member successfully verified via admin override.');
       fetchDetail();
@@ -75,7 +77,8 @@ function MemberDetailContent() {
 
   const handleForceReverify = async () => {
     const token = localStorage.getItem('dverif_admin_token') || '';
-    const res = await adminReverifyUser(token, userId, guildId);
+    const targetId = data?.user?.id || userId;
+    const res = await adminReverifyUser(token, targetId, guildId);
     if (res.success && res.verifyUrl) {
       setReverifyLink(res.verifyUrl);
       setActionSuccess('New verification link generated.');
@@ -96,7 +99,7 @@ function MemberDetailContent() {
     return (
       <div className="center-container">
         <div className="card">
-          <div className="spinner"></div>
+          <div className="spinner" />
           <p>Loading member profile...</p>
         </div>
       </div>
@@ -121,6 +124,7 @@ function MemberDetailContent() {
 
   return (
     <div>
+      {/* Header */}
       <div
         style={{
           marginBottom: '2rem',
@@ -131,16 +135,32 @@ function MemberDetailContent() {
           gap: '1rem',
         }}
       >
-        <div>
-          <Link
-            href={`/admin/members${guildId ? `?guildId=${guildId}` : ''}`}
-            className="text-sm highlight"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.5rem' }}
-          >
-            <ArrowLeft size={14} /> Back to Members
-          </Link>
-          <h1>{user.username || 'Member Details'}</h1>
-          <p style={{ marginBottom: 0, fontFamily: 'monospace' }}>Discord Snowflake ID: {user.discord_id}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {user.avatar && (
+            <img
+              src={user.avatar}
+              alt={user.username}
+              style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+            />
+          )}
+          <div>
+            <Link
+              href={`/admin/members${guildId ? `?guildId=${guildId}` : ''}`}
+              className="text-sm highlight"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.35rem' }}
+            >
+              <ArrowLeft size={14} /> Back to Members
+            </Link>
+            <h1 style={{ margin: 0 }}>{user.displayName || user.username || 'Member Details'}</h1>
+            {user.displayName && user.displayName !== user.username && (
+              <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                @{user.username}
+              </p>
+            )}
+            <p style={{ margin: 0, fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Discord Snowflake ID: {user.discord_id}
+            </p>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -149,11 +169,9 @@ function MemberDetailContent() {
               Revoke Verification
             </button>
           )}
-
           <button onClick={handleForceReverify} className="btn btn-secondary btn-sm">
             Force Re-verification
           </button>
-
           {(!verification || verification.status !== 'VERIFIED') && (
             <button onClick={handleManualVerify} className="btn btn-primary btn-sm">
               Manual Override Verify
@@ -162,18 +180,12 @@ function MemberDetailContent() {
         </div>
       </div>
 
-      {actionSuccess && <div className="alert alert-success">{actionSuccess}</div>}
+      {actionSuccess && <div className="alert alert-success" style={{ marginBottom: '1rem' }}>{actionSuccess}</div>}
 
       {reverifyLink && (
         <div
           className="alert alert-info"
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '1rem',
-          }}
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}
         >
           <div style={{ wordBreak: 'break-all', fontSize: '0.85rem' }}>
             <strong>Direct Link:</strong> {reverifyLink}
@@ -184,7 +196,7 @@ function MemberDetailContent() {
         </div>
       )}
 
-      {/* Current Standing Card */}
+      {/* Current Standing */}
       <div className="card card-wide" style={{ marginBottom: '2rem' }}>
         <h2>Current Standing</h2>
         <div style={{ display: 'flex', gap: '2.5rem', flexWrap: 'wrap', marginTop: '1rem' }}>
@@ -194,8 +206,7 @@ function MemberDetailContent() {
               className={`badge ${
                 verification && verification.status === 'VERIFIED'
                   ? 'badge-verified'
-                  : verification &&
-                    (verification.status === 'REVOKED' || verification.status === 'FAILED')
+                  : verification && (verification.status === 'REVOKED' || verification.status === 'FAILED')
                   ? 'badge-failed'
                   : 'badge-pending'
               }`}
@@ -206,16 +217,21 @@ function MemberDetailContent() {
 
           <div>
             <div className="stat-title">Role Confirmed</div>
-            <div>{verification && verification.role_assigned ? 'Active in Discord' : 'Not Assigned'}</div>
+            <div>{verification?.role_assigned ? 'Active in Discord' : 'Not Assigned'}</div>
           </div>
 
           <div>
             <div className="stat-title">Verified At</div>
             <div>
-              {verification && verification.verified_at
+              {verification?.verified_at
                 ? new Date(verification.verified_at).toLocaleString()
                 : 'Never'}
             </div>
+          </div>
+
+          <div>
+            <div className="stat-title">Server Joined</div>
+            <div>{user.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : '—'}</div>
           </div>
 
           <div>
@@ -223,9 +239,45 @@ function MemberDetailContent() {
             <div>{new Date(user.created_at).toLocaleDateString()}</div>
           </div>
         </div>
+
+        {/* Discord Roles */}
+        {user.roles && user.roles.length > 0 && (
+          <div style={{ marginTop: '1.5rem' }}>
+            <div className="stat-title" style={{ marginBottom: '0.5rem' }}>Discord Roles</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+              {user.roles.map((r: any) => (
+                <span
+                  key={r.id}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.2rem 0.65rem',
+                    borderRadius: '999px',
+                    fontSize: '0.78rem',
+                    background: 'var(--surface-2)',
+                    border: `1px solid ${r.color !== '#000000' ? r.color : 'var(--border)'}`,
+                    color: 'var(--text)',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      background: r.color !== '#000000' ? r.color : 'var(--text-muted)',
+                      flexShrink: 0,
+                    }}
+                  />
+                  {r.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Attempts History */}
+      {/* Attempt History */}
       <div style={{ marginBottom: '2rem' }}>
         <h2>Attempt History</h2>
         <div className="table-wrapper" style={{ marginTop: '1rem' }}>
@@ -246,9 +298,7 @@ function MemberDetailContent() {
                       {new Date(att.created_at).toLocaleString()}
                     </td>
                     <td>
-                      <span
-                        className={`badge ${att.result === 'SUCCESS' ? 'badge-verified' : 'badge-failed'}`}
-                      >
+                      <span className={`badge ${att.result === 'SUCCESS' ? 'badge-verified' : 'badge-failed'}`}>
                         {att.result}
                       </span>
                     </td>
@@ -270,7 +320,7 @@ function MemberDetailContent() {
         </div>
       </div>
 
-      {/* User Audit Trail */}
+      {/* Audit Log Trail */}
       <div>
         <h2>Audit Log Trail</h2>
         <div className="table-wrapper" style={{ marginTop: '1rem' }}>

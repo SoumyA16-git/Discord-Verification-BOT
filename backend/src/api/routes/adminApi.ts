@@ -8,7 +8,7 @@ import { getDiscordClient } from '../../bot/client.js';
 import { findAdminByDiscordId, upsertAdminUser } from '../../database/queries/adminUsers.js';
 import { getGuildConfig, updateGuildConfig, upsertGuildConfig } from '../../database/queries/guildConfig.js';
 import { findGuildById, upsertGuild, findGuildByDiscordId, findGuildByIdOrDiscordId } from '../../database/queries/guilds.js';
-import { findUserById } from '../../database/queries/users.js';
+import { findUserById, findUserByDiscordId } from '../../database/queries/users.js';
 import { getVerification, markVerificationVerified, markVerificationRevoked } from '../../database/queries/verifications.js';
 import { getGuildAttemptStats, recordAttempt } from '../../database/queries/attempts.js';
 import { createAuditLog, getGuildAuditLogs } from '../../database/queries/auditLogs.js';
@@ -538,100 +538,181 @@ router.get('/overview', requireAdmin, async (req: Request, res: Response) => {
 
 /**
  * GET /api/admin/members
+ * Fetches live Discord guild members and merges DB verification status.
+ * Uses cursor-based pagination via ?after=<discordId>
  */
 router.get('/members', requireAdmin, async (req: Request, res: Response) => {
   const query = ((req.query.q as string) || '').trim();
+  const after = (req.query.after as string | undefined)?.trim() || undefined;
+  const limit = 50;
   const guildId = await resolveAdminGuildId(req);
-  const page = Math.max(1, parseInt(req.query.page as string) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
-  const offset = (page - 1) * limit;
   const db = getDb();
+  const client = getDiscordClient();
 
-  // Build base query for total count
-  let countQuery = db
-    .from('users')
-    .select('id', { count: 'exact', head: true });
+  if (!guildId) {
+    return res.json({ members: [], nextCursor: null, hasMore: false });
+  }
 
-  // Build data query — left-join verifications filtered to the active guild
-  let membersQuery = db
-    .from('users')
-    .select(`
-      id,
-      discord_id,
-      username,
-      created_at,
-      verifications!left(status, role_assigned, verified_at, updated_at, guild_id)
-    `)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  const guild = await findGuildById(guildId);
+  if (!guild) {
+    return res.status(404).json({ error: { code: 'GUILD_NOT_FOUND', message: 'Guild not found' } });
+  }
 
-  // Apply search filter to both queries
-  if (query) {
-    if (/^\d{17,20}$/.test(query)) {
-      membersQuery = membersQuery.eq('discord_id', query);
-      countQuery = countQuery.eq('discord_id', query);
-    } else {
-      membersQuery = membersQuery.ilike('username', `%${query}%`);
-      countQuery = countQuery.ilike('username', `%${query}%`);
+  if (!client.isReady()) {
+    return res.status(503).json({ error: { code: 'BOT_OFFLINE', message: 'Discord bot gateway is offline' } });
+  }
+
+  let discordGuild = client.guilds.cache.get(guild.discord_guild_id);
+  if (!discordGuild) {
+    try {
+      discordGuild = await client.guilds.fetch(guild.discord_guild_id);
+    } catch {
+      return res.status(404).json({ error: { code: 'DISCORD_GUILD_NOT_FOUND', message: 'Bot is not in this Discord server' } });
     }
   }
 
-  const [{ data: rawMembers, error }, { count: total }] = await Promise.all([
-    membersQuery,
-    countQuery,
-  ]);
+  try {
+    let discordMembers: any[];
 
-  if (error) {
-    return res.status(500).json({ error: { code: 'DB_ERROR', message: error.message } });
+    // If query is a Snowflake ID — fetch that single member directly
+    if (query && /^\d{17,20}$/.test(query)) {
+      try {
+        const single = await discordGuild.members.fetch(query);
+        discordMembers = single && !single.user.bot ? [single] : [];
+      } catch {
+        discordMembers = [];
+      }
+    } else {
+      // Cursor-based list — Discord members.list() returns up to 1000, we page ourselves
+      const fetchOptions: Parameters<typeof discordGuild.members.list>[0] = { limit };
+      if (after) (fetchOptions as any).after = after;
+      // Username query filter (Discord API fuzzy-matches displayName)
+      if (query) (fetchOptions as any).query = query;
+
+      const col = await discordGuild.members.list(fetchOptions);
+      discordMembers = [...col.values()].filter((m) => !m.user.bot);
+    }
+
+    // Build map of discord_id -> verification from DB for this guild
+    const discordIds = discordMembers.map((m) => m.user.id);
+
+    let verifMap = new Map<string, any>();
+    if (discordIds.length > 0) {
+      // Join verifications -> users on discord_id
+      const { data: verifRows } = await db
+        .from('verifications')
+        .select('status, role_assigned, verified_at, users!inner(discord_id)')
+        .eq('guild_id', guildId)
+        .in('users.discord_id', discordIds);
+
+      verifMap = new Map(
+        (verifRows || []).map((v: any) => [v.users.discord_id, v])
+      );
+    }
+
+    // Merge Discord member data with verification status
+    const members = discordMembers.map((m) => {
+      const verif = verifMap.get(m.user.id);
+      return {
+        discordId: m.user.id,
+        username: m.user.username,
+        displayName: m.displayName || m.user.username,
+        avatar: m.user.displayAvatarURL({ size: 64 }),
+        joinedAt: m.joinedAt?.toISOString() ?? null,
+        status: verif?.status ?? 'UNVERIFIED',
+        roleAssigned: verif?.role_assigned ?? false,
+        verifiedAt: verif?.verified_at ?? null,
+      };
+    });
+
+    // Cursor = last member's discordId (only when not a single-member or username search)
+    const isSearchMode = !!query;
+    const nextCursor = !isSearchMode && members.length === limit
+      ? members[members.length - 1].discordId
+      : null;
+
+    res.json({ members, nextCursor, hasMore: !!nextCursor });
+  } catch (err) {
+    logger.error({ err, guildId }, 'Error fetching Discord guild members');
+    res.status(500).json({ error: { code: 'DISCORD_ERROR', message: 'Failed to fetch Discord guild members' } });
   }
-
-  // Filter verifications to only include entries for the active guild
-  const members = (rawMembers || []).map((m: any) => ({
-    ...m,
-    verifications: guildId
-      ? (m.verifications || []).filter((v: any) => v.guild_id === guildId)
-      : (m.verifications || []),
-  }));
-
-  const totalCount = total ?? 0;
-  res.json({
-    members,
-    total: totalCount,
-    page,
-    totalPages: Math.ceil(totalCount / limit),
-  });
 });
 
 /**
  * GET /api/admin/members/:userId
+ * Accepts either an internal UUID or a Discord snowflake ID.
  */
 router.get('/members/:userId', requireAdmin, async (req: Request, res: Response) => {
   const { userId } = req.params;
   const guildId = await resolveAdminGuildId(req);
   const db = getDb();
+  const client = getDiscordClient();
 
-  const user = await findUserById(userId);
-  if (!user) {
-    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } });
+  // Resolve user: try snowflake first, then internal UUID
+  let user = /^\d{17,20}$/.test(userId)
+    ? await findUserByDiscordId(userId)
+    : await findUserById(userId);
+
+  // If not in DB yet, try to fetch from Discord and enrich response anyway
+  let discordMember: any = null;
+  const guild = await findGuildById(guildId);
+  if (guild && client.isReady()) {
+    try {
+      const discordGuild = client.guilds.cache.get(guild.discord_guild_id)
+        || await client.guilds.fetch(guild.discord_guild_id).catch(() => null);
+      if (discordGuild) {
+        const discordId = user?.discord_id ?? (/^\d{17,20}$/.test(userId) ? userId : null);
+        if (discordId) {
+          discordMember = await discordGuild.members.fetch(discordId).catch(() => null);
+        }
+      }
+    } catch {
+      // Non-fatal — Discord lookup failure still returns DB data
+    }
   }
 
-  const verification = await getVerification(userId, guildId);
-  const { data: attempts } = await db
+  if (!user && !discordMember) {
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found in database or Discord server' } });
+  }
+
+  // Build a synthetic user object if not in DB (never interacted with bot)
+  const userRow = user ?? {
+    id: null,
+    discord_id: discordMember?.user.id,
+    username: discordMember?.user.username,
+    created_at: discordMember?.joinedAt?.toISOString() ?? new Date().toISOString(),
+  };
+
+  // Enrich with live Discord data
+  const enriched = {
+    ...userRow,
+    displayName: discordMember?.displayName ?? userRow.username,
+    avatar: discordMember?.user.displayAvatarURL({ size: 128 }) ?? null,
+    joinedAt: discordMember?.joinedAt?.toISOString() ?? null,
+    roles: discordMember?.roles.cache
+      .filter((r: any) => r.id !== discordMember?.guild.id)
+      .map((r: any) => ({ id: r.id, name: r.name, color: r.hexColor })) ?? [],
+  };
+
+  const internalUserId = user?.id;
+  const verification = internalUserId ? await getVerification(internalUserId, guildId) : null;
+
+  const { data: attempts } = internalUserId ? await db
     .from('verification_attempts')
     .select('*')
-    .eq('user_id', userId)
+    .eq('user_id', internalUserId)
     .eq('guild_id', guildId)
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(20) : { data: [] };
 
-  const { data: auditLogs } = await db
+  const { data: auditLogs } = internalUserId ? await db
     .from('audit_logs')
     .select('*')
-    .eq('user_id', userId)
+    .eq('user_id', internalUserId)
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(20) : { data: [] };
 
-  res.json({ user, verification, attempts: attempts || [], auditLogs: auditLogs || [] });
+  res.json({ user: enriched, verification, attempts: attempts || [], auditLogs: auditLogs || [] });
 });
 
 /**
@@ -640,7 +721,12 @@ router.get('/members/:userId', requireAdmin, async (req: Request, res: Response)
 router.post('/members/:userId/verify', requireAdmin, requireOwner, async (req: Request, res: Response) => {
   const { userId } = req.params;
   const guildId = await resolveAdminGuildId(req);
-  const user = await findUserById(userId);
+
+  // Accept both Discord snowflake and internal UUID
+  const user = /^\d{17,20}$/.test(userId)
+    ? await findUserByDiscordId(userId)
+    : await findUserById(userId);
+
   const guild = await findGuildById(guildId);
   const config = await getGuildConfig(guildId);
 
@@ -654,18 +740,18 @@ router.post('/members/:userId/verify', requireAdmin, requireOwner, async (req: R
     verifiedRoleId: config.verified_role_id,
     unverifiedRoleId: config.unverified_role_id,
     internalGuildId: guildId,
-    internalUserId: userId,
+    internalUserId: user.id,
   });
 
   if (!roleResult.success) {
     return res.status(500).json({ error: { code: 'ROLE_ASSIGN_FAILED', message: roleResult.error } });
   }
 
-  await markVerificationVerified({ userId, guildId });
-  await recordAttempt({ userId, guildId, result: 'SUCCESS' });
+  await markVerificationVerified({ userId: user.id, guildId });
+  await recordAttempt({ userId: user.id, guildId, result: 'SUCCESS' });
   await createAuditLog({
     guildId,
-    userId,
+    userId: user.id,
     adminId: req.admin?.id,
     eventType: 'admin_action',
     metadata: { action: 'manual_verify_override' },
@@ -681,7 +767,12 @@ router.post('/members/:userId/revoke', requireAdmin, async (req: Request, res: R
   const { userId } = req.params;
   const reason = (req.body.reason as string) || 'Revoked by admin';
   const guildId = await resolveAdminGuildId(req);
-  const user = await findUserById(userId);
+
+  // Accept both Discord snowflake and internal UUID
+  const user = /^\d{17,20}$/.test(userId)
+    ? await findUserByDiscordId(userId)
+    : await findUserById(userId);
+
   const guild = await findGuildById(guildId);
   const config = await getGuildConfig(guildId);
 
@@ -696,10 +787,10 @@ router.post('/members/:userId/revoke', requireAdmin, async (req: Request, res: R
     unverifiedRoleId: config.unverified_role_id,
   });
 
-  await markVerificationRevoked({ userId, guildId, revokedByAdminId: req.admin?.id });
+  await markVerificationRevoked({ userId: user.id, guildId, revokedByAdminId: req.admin?.id });
   await createAuditLog({
     guildId,
-    userId,
+    userId: user.id,
     adminId: req.admin?.id,
     eventType: 'verification_revoked',
     metadata: { reason },
@@ -715,7 +806,12 @@ router.post('/members/:userId/reverify', requireAdmin, async (req: Request, res:
   const { userId } = req.params;
   const guildId = await resolveAdminGuildId(req);
   const env = getEnv();
-  const user = await findUserById(userId);
+
+  // Accept both Discord snowflake and internal UUID
+  const user = /^\d{17,20}$/.test(userId)
+    ? await findUserByDiscordId(userId)
+    : await findUserById(userId);
+
   const config = await getGuildConfig(guildId);
 
   if (!user || !config) {

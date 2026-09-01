@@ -14,38 +14,34 @@ function MembersContent() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Track current guildId + query so refetches don't stomp each other
-  const latestGuildId = useRef(guildIdParam);
-  const latestQuery = useRef(query);
+  const latestQuery = useRef('');
 
   const fetchMembers = useCallback(
-    async (searchQuery: string, targetPage: number, append = false) => {
-      if (append) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-      }
+    async (searchQuery: string, cursor: string | undefined, append = false) => {
+      if (append) setLoadingMore(true);
+      else { setLoading(true); setError(null); }
+
       const token =
         typeof window !== 'undefined'
           ? localStorage.getItem('dverif_admin_token') || ''
           : '';
       try {
-        const res = await getAdminMembers(
-          token,
-          searchQuery,
-          guildIdParam || undefined,
-          targetPage
-        );
+        const res = await getAdminMembers(token, searchQuery || undefined, guildIdParam || undefined, cursor);
+        if (res.error) {
+          setError(res.error.message || 'Failed to load members.');
+          if (!append) setMembers([]);
+          return;
+        }
         const newMembers: any[] = res.members || [];
         setMembers((prev) => (append ? [...prev, ...newMembers] : newMembers));
-        setTotal(res.total ?? newMembers.length);
-        setTotalPages(res.totalPages ?? 1);
-        setPage(targetPage);
+        setNextCursor(res.nextCursor ?? null);
+        setHasMore(res.hasMore ?? false);
       } catch {
+        setError('Failed to connect to backend.');
         if (!append) setMembers([]);
       } finally {
         setLoading(false);
@@ -55,19 +51,17 @@ function MembersContent() {
     [guildIdParam]
   );
 
-  // Re-fetch from page 1 when guildId or query changes
+  // Initial load + re-fetch when guild changes
   useEffect(() => {
-    latestGuildId.current = guildIdParam;
-    latestQuery.current = query;
-    fetchMembers(query, 1, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guildIdParam]);
+    latestQuery.current = '';
+    setQuery('');
+    setNextCursor(null);
+    fetchMembers('', undefined, false);
+  }, [guildIdParam, fetchMembers]);
 
-  // Re-fetch on window focus (dynamic updates when switching tabs)
+  // Re-fetch on window focus
   useEffect(() => {
-    const onFocus = () => {
-      fetchMembers(latestQuery.current, 1, false);
-    };
+    const onFocus = () => fetchMembers(latestQuery.current, undefined, false);
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [fetchMembers]);
@@ -75,25 +69,31 @@ function MembersContent() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     latestQuery.current = query;
-    fetchMembers(query, 1, false);
+    setNextCursor(null);
+    fetchMembers(query, undefined, false);
   };
 
   const handleRefresh = () => {
-    fetchMembers(latestQuery.current, 1, false);
+    latestQuery.current = query;
+    setNextCursor(null);
+    fetchMembers(query, undefined, false);
   };
 
   const handleLoadMore = () => {
-    fetchMembers(latestQuery.current, page + 1, true);
+    if (nextCursor) fetchMembers(latestQuery.current, nextCursor, true);
   };
 
   return (
     <div>
       <div style={{ marginBottom: '2rem' }}>
         <h1>Member Management</h1>
-        <p style={{ marginBottom: 0 }}>Search server members by Discord Snowflake ID or Username.</p>
+        <p style={{ marginBottom: 0 }}>Live Discord server members — search by Snowflake ID or Username.</p>
       </div>
 
-      <form onSubmit={handleSearch} style={{ marginBottom: '2rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+      <form
+        onSubmit={handleSearch}
+        style={{ marginBottom: '2rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}
+      >
         <input
           type="text"
           value={query}
@@ -111,7 +111,8 @@ function MembersContent() {
             onClick={() => {
               setQuery('');
               latestQuery.current = '';
-              fetchMembers('', 1, false);
+              setNextCursor(null);
+              fetchMembers('', undefined, false);
             }}
             className="btn btn-secondary"
           >
@@ -125,15 +126,24 @@ function MembersContent() {
           disabled={loading}
           title="Refresh member list"
         >
-          <RefreshCw size={16} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+          <RefreshCw
+            size={16}
+            style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}
+          />
           Refresh
         </button>
       </form>
 
-      {!loading && (
+      {error && (
+        <div className="alert alert-danger" style={{ marginBottom: '1rem' }}>
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && (
         <p style={{ marginBottom: '0.75rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          Showing <strong>{members.length}</strong> of <strong>{total}</strong> member{total !== 1 ? 's' : ''}
-          {guildIdParam ? '' : ' (all servers)'}
+          Showing <strong>{members.length}</strong> member{members.length !== 1 ? 's' : ''}
+          {hasMore ? ' (scroll down to load more)' : ''}
         </p>
       )}
 
@@ -141,6 +151,7 @@ function MembersContent() {
         <table className="data-table">
           <thead>
             <tr>
+              <th style={{ width: 48 }}>Avatar</th>
               <th>Discord ID</th>
               <th>Username</th>
               <th>Status</th>
@@ -152,64 +163,103 @@ function MembersContent() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem' }}>
-                  <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 0.5rem' }}></div>
-                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading members...</span>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem' }}>
+                  <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 0.5rem' }} />
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Fetching Discord members...
+                  </span>
                 </td>
               </tr>
             ) : members.length > 0 ? (
               <>
-                {members.map((m) => {
-                  // verifications is already guild-filtered by the backend
-                  const verif = m.verifications && m.verifications[0];
-                  const status = verif ? verif.status : 'UNVERIFIED';
-
-                  return (
-                    <tr key={m.id}>
-                      <td style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{m.discord_id}</td>
-                      <td>
-                        <strong>{m.username || 'Unknown'}</strong>
-                      </td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            status === 'VERIFIED'
-                              ? 'badge-verified'
-                              : status === 'REVOKED' || status === 'FAILED'
-                              ? 'badge-failed'
-                              : 'badge-pending'
-                          }`}
+                {members.map((m) => (
+                  <tr key={m.discordId}>
+                    <td>
+                      {m.avatar ? (
+                        <img
+                          src={m.avatar}
+                          alt={m.username}
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            verticalAlign: 'middle',
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            background: 'var(--surface-2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.75rem',
+                            color: 'var(--text-muted)',
+                          }}
                         >
-                          {status}
-                        </span>
-                      </td>
-                      <td>{verif && verif.role_assigned ? 'Yes' : 'No'}</td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                        {verif && verif.verified_at ? new Date(verif.verified_at).toLocaleDateString() : '—'}
-                      </td>
-                      <td>
-                        <Link
-                          href={`/admin/members/${m.id}${guildIdParam ? `?guildId=${guildIdParam}` : ''}`}
-                          className="btn btn-secondary btn-sm"
-                        >
-                          Inspect
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
+                          {(m.username || '?')[0].toUpperCase()}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{m.discordId}</td>
+                    <td>
+                      <div>
+                        <strong>{m.displayName || m.username || 'Unknown'}</strong>
+                        {m.displayName && m.displayName !== m.username && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            @{m.username}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          m.status === 'VERIFIED'
+                            ? 'badge-verified'
+                            : m.status === 'REVOKED' || m.status === 'FAILED'
+                            ? 'badge-failed'
+                            : 'badge-pending'
+                        }`}
+                      >
+                        {m.status}
+                      </span>
+                    </td>
+                    <td>{m.roleAssigned ? 'Yes' : 'No'}</td>
+                    <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                      {m.verifiedAt ? new Date(m.verifiedAt).toLocaleDateString() : '—'}
+                    </td>
+                    <td>
+                      <Link
+                        href={`/admin/members/${m.discordId}${guildIdParam ? `?guildId=${guildIdParam}` : ''}`}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        Inspect
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
                 {loadingMore && (
                   <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '1.5rem' }}>
-                      <div className="spinner" style={{ width: 24, height: 24, margin: '0 auto' }}></div>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                      <div className="spinner" style={{ width: 24, height: 24, margin: '0 auto' }} />
                     </td>
                   </tr>
                 )}
               </>
             ) : (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2.5rem' }}>
-                  {query ? 'No members found matching your search.' : 'No members registered yet in this server.'}
+                <td
+                  colSpan={7}
+                  style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2.5rem' }}
+                >
+                  {query
+                    ? 'No members found matching your search.'
+                    : 'No members found in this server.'}
                 </td>
               </tr>
             )}
@@ -217,7 +267,7 @@ function MembersContent() {
         </table>
       </div>
 
-      {!loading && page < totalPages && (
+      {!loading && hasMore && (
         <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
           <button
             type="button"
@@ -225,7 +275,7 @@ function MembersContent() {
             disabled={loadingMore}
             className="btn btn-secondary"
           >
-            {loadingMore ? 'Loading...' : `Load More (${members.length} / ${total})`}
+            {loadingMore ? 'Loading...' : 'Load More Members'}
           </button>
         </div>
       )}
