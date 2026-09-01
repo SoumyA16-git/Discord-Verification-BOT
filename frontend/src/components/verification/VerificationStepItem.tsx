@@ -40,39 +40,16 @@ export function VerificationStepItem({
 
   // Pick default icon based on step type
   const getStepIcon = () => {
-    if (isSuccess) return <Check size={18} />;
-    switch (step.id) {
-      case 'discord_identity':
-        return <UserCheck size={18} />;
-      case 'server_membership':
-        return <Server size={18} />;
-      case 'account_check':
-        return <Clock size={18} />;
-      case 'anti_bot':
-        return <ShieldCheck size={18} />;
-      case 'verification':
-        return <CheckCircle2 size={18} />;
-      case 'role_assignment':
-        return <UserPlus size={18} />;
-      default:
-        return <CheckCircle2 size={18} />;
-    }
+    if (isSuccess) return <Check size={16} strokeWidth={3} style={{ color: '#fff' }} />;
+    if (isFailed) return <XCircle size={18} style={{ color: 'var(--status-red)' }} />;
+    return (
+      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isChecking ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+        {index + 1}
+      </span>
+    );
   };
 
-  // Dynamic card styling based on state
-  const getBorderColor = () => {
-    if (isChecking) return 'rgba(88, 101, 242, 0.45)';
-    if (isSuccess) return 'rgba(16, 185, 129, 0.3)';
-    if (isFailed) return 'rgba(239, 68, 68, 0.4)';
-    return 'rgba(255, 255, 255, 0.06)';
-  };
 
-  const getBackground = () => {
-    if (isChecking) return 'rgba(88, 101, 242, 0.05)';
-    if (isSuccess) return '#0a1f16';
-    if (isFailed) return 'rgba(239, 68, 68, 0.04)';
-    return 'rgba(255, 255, 255, 0.02)';
-  };
 
   const getStatusText = () => {
     if (isSuccess) return detail || step.successText;
@@ -112,16 +89,10 @@ export function VerificationStepItem({
         display: 'flex',
         alignItems: 'center',
         gap: '1rem',
-        padding: '0.85rem 1rem',
-        borderRadius: '10px',
-        backgroundColor: getBackground(),
-        border: `1px solid ${getBorderColor()}`,
-        boxShadow: isChecking
-          ? '0 0 20px -5px rgba(88, 101, 242, 0.25)'
-          : isSuccess
-          ? '0 0 16px -8px rgba(16, 185, 129, 0.2)'
-          : 'none',
-        transition: 'border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease',
+        padding: '0.75rem 0', // Removed horizontal padding since there's no card border
+        backgroundColor: 'transparent',
+        border: 'none',
+        boxShadow: 'none',
       }}
       role="listitem"
       aria-label={`${step.title}: ${getStatusText()}`}
@@ -143,28 +114,24 @@ export function VerificationStepItem({
           style={{
             width: '100%',
             height: '100%',
-            borderRadius: '9px',
+            borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: isSuccess
-              ? 'rgba(16, 185, 129, 0.15)'
-              : isChecking
-              ? 'rgba(88, 101, 242, 0.18)'
-              : isFailed
-              ? 'rgba(239, 68, 68, 0.15)'
-              : 'rgba(255, 255, 255, 0.05)',
+              ? '#10b981'
+              : 'transparent',
             border: `1px solid ${
               isSuccess
-                ? 'rgba(16, 185, 129, 0.35)'
+                ? '#10b981'
                 : isChecking
-                ? 'rgba(88, 101, 242, 0.4)'
+                ? '#5865f2'
                 : isFailed
-                ? 'rgba(239, 68, 68, 0.35)'
-                : 'rgba(255, 255, 255, 0.08)'
+                ? '#ef4444'
+                : 'rgba(255, 255, 255, 0.15)'
             }`,
             color: isSuccess
-              ? '#10b981'
+              ? '#fff'
               : isChecking
               ? '#5865f2'
               : isFailed
@@ -178,8 +145,8 @@ export function VerificationStepItem({
               height="20"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#10b981"
-              strokeWidth="2.5"
+              stroke="#fff"
+              strokeWidth="3"
               strokeLinecap="round"
               strokeLinejoin="round"
             >
