@@ -40,10 +40,11 @@ export function VerificationStepItem({
 
   // Pick default icon based on step type
   const getStepIcon = () => {
-    if (isSuccess) return <Check size={16} strokeWidth={3} style={{ color: '#fff' }} />;
-    if (isFailed) return <XCircle size={18} style={{ color: 'var(--status-red)' }} />;
+    if (isSuccess) return <CheckCircle2 size={18} style={{ color: '#fff' }} />;
+    if (isFailed) return <XCircle size={18} style={{ color: '#fff' }} />;
+    if (isChecking) return <Loader2 size={18} className="animate-spin" style={{ color: '#fff' }} />;
     return (
-      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isChecking ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>
         {index + 1}
       </span>
     );
@@ -120,48 +121,24 @@ export function VerificationStepItem({
             justifyContent: 'center',
             backgroundColor: isSuccess
               ? '#10b981'
-              : 'transparent',
+              : isChecking
+              ? '#3b82f6'
+              : isFailed
+              ? '#ef4444'
+              : '#18181b',
             border: `1px solid ${
               isSuccess
                 ? '#10b981'
                 : isChecking
-                ? '#5865f2'
+                ? '#3b82f6'
                 : isFailed
                 ? '#ef4444'
-                : 'rgba(255, 255, 255, 0.15)'
+                : '#27272a'
             }`,
-            color: isSuccess
-              ? '#fff'
-              : isChecking
-              ? '#5865f2'
-              : isFailed
-              ? '#ef4444'
-              : '#64748b',
+            color: '#fff',
           }}
         >
-          {isSuccess ? (
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#fff"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <motion.path
-                d="M20 6L9 17L4 12"
-                initial={shouldReduceMotion ? { pathLength: 1 } : { pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: shouldReduceMotion ? 0.01 : 0.32, ease: 'easeOut' }}
-              />
-            </svg>
-          ) : isFailed ? (
-            <XCircle size={18} color="#ef4444" />
-          ) : (
-            getStepIcon()
-          )}
+          {getStepIcon()}
         </motion.div>
       </div>
 
@@ -179,20 +156,6 @@ export function VerificationStepItem({
           }}
         >
           <span>{step.title}</span>
-          {isChecking && (
-            <span
-              style={{
-                fontSize: '0.72rem',
-                padding: '2px 7px',
-                borderRadius: '9999px',
-                backgroundColor: 'rgba(88, 101, 242, 0.15)',
-                color: '#5865f2',
-                fontWeight: 500,
-              }}
-            >
-              Active Check
-            </span>
-          )}
         </div>
 
         <div
@@ -214,13 +177,6 @@ export function VerificationStepItem({
             textOverflow: 'ellipsis',
           }}
         >
-          {isChecking && !shouldReduceMotion && (
-            <Loader2
-              size={12}
-              className="animate-spin"
-              style={{ animation: 'spin 1.5s linear infinite' }}
-            />
-          )}
           <span>{getStatusText()}</span>
         </div>
       </div>

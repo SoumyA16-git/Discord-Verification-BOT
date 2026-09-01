@@ -8,15 +8,19 @@ interface VerificationConnectorProps {
   isActive: boolean;
 }
 
-export function VerificationConnector({ isCompleted }: VerificationConnectorProps) {
+export function VerificationConnector({ isCompleted, isActive }: VerificationConnectorProps) {
   return (
     <div
       style={{
-        width: 0,
+        width: '2px',
         height: '24px',
-        marginLeft: '18px', // Centered relative to 38px circle (18px left margin + 1px border = center of 38)
-        borderLeft: isCompleted ? '2px dotted #10b981' : '2px dotted rgba(255, 255, 255, 0.15)',
-        transition: 'border-color 0.3s ease',
+        marginLeft: '19px', // Centered relative to 40px circle (19px left margin)
+        background: isCompleted
+          ? '#10b981'
+          : isActive
+          ? 'linear-gradient(to bottom, #10b981, #3b82f6)'
+          : '#27272a',
+        transition: 'background 0.3s ease',
       }}
       aria-hidden="true"
     />
