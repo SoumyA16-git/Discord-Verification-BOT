@@ -8,7 +8,7 @@ import { getDiscordClient } from '../../bot/client.js';
 import { findAdminByDiscordId, upsertAdminUser } from '../../database/queries/adminUsers.js';
 import { getGuildConfig, updateGuildConfig, upsertGuildConfig } from '../../database/queries/guildConfig.js';
 import { findGuildById, upsertGuild, findGuildByDiscordId, findGuildByIdOrDiscordId } from '../../database/queries/guilds.js';
-import { findUserById, findUserByDiscordId } from '../../database/queries/users.js';
+import { findUserById, findUserByDiscordId, upsertUser } from '../../database/queries/users.js';
 import { getVerification, markVerificationVerified, markVerificationRevoked } from '../../database/queries/verifications.js';
 import { getGuildAttemptStats, recordAttempt } from '../../database/queries/attempts.js';
 import { createAuditLog, getGuildAuditLogs } from '../../database/queries/auditLogs.js';
@@ -721,11 +721,22 @@ router.get('/members/:userId', requireAdmin, async (req: Request, res: Response)
 router.post('/members/:userId/verify', requireAdmin, requireOwner, async (req: Request, res: Response) => {
   const { userId } = req.params;
   const guildId = await resolveAdminGuildId(req);
+  const client = getDiscordClient();
 
   // Accept both Discord snowflake and internal UUID
-  const user = /^\d{17,20}$/.test(userId)
+  let user = /^\d{17,20}$/.test(userId)
     ? await findUserByDiscordId(userId)
     : await findUserById(userId);
+
+  // If user not in DB (never interacted with bot), auto-create them via Discord fetch
+  if (!user && /^\d{17,20}$/.test(userId)) {
+    try {
+      const discordUser = await client.users.fetch(userId);
+      user = await upsertUser(discordUser.id, discordUser.username);
+    } catch {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found in Discord server' } });
+    }
+  }
 
   const guild = await findGuildById(guildId);
   const config = await getGuildConfig(guildId);
@@ -806,11 +817,22 @@ router.post('/members/:userId/reverify', requireAdmin, async (req: Request, res:
   const { userId } = req.params;
   const guildId = await resolveAdminGuildId(req);
   const env = getEnv();
+  const client = getDiscordClient();
 
   // Accept both Discord snowflake and internal UUID
-  const user = /^\d{17,20}$/.test(userId)
+  let user = /^\d{17,20}$/.test(userId)
     ? await findUserByDiscordId(userId)
     : await findUserById(userId);
+
+  // If user not in DB (never interacted with bot), auto-create them via Discord fetch
+  if (!user && /^\d{17,20}$/.test(userId)) {
+    try {
+      const discordUser = await client.users.fetch(userId);
+      user = await upsertUser(discordUser.id, discordUser.username);
+    } catch {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found in Discord server' } });
+    }
+  }
 
   const config = await getGuildConfig(guildId);
 
