@@ -125,6 +125,19 @@ export async function autoProvisionServerRoles(guild: Guild, dbGuildId: string):
       });
     }
 
+    // 5.5 Disable ViewChannel for @everyone role so other channels are hidden by default
+    try {
+      const everyoneRole = guild.roles.everyone;
+      if (everyoneRole.permissions.has(PermissionFlagsBits.ViewChannel)) {
+        logger.info({ guildId: guild.id }, 'Disabling ViewChannel for @everyone role (Server Lockdown)');
+        const newPermissions = everyoneRole.permissions.remove(PermissionFlagsBits.ViewChannel);
+        await everyoneRole.setPermissions(newPermissions, 'Auto-provisioned server lockdown by 911 - Verification BOT');
+      }
+    } catch (err) {
+      logger.warn({ err, guildId: guild.id }, 'Failed to disable ViewChannel for @everyone role. Missing ManageRoles permission or bot role is not high enough.');
+      if (!hierarchyWarning) hierarchyWarning = "Failed to lock down channels. Please manually turn off 'View Channels' for the @everyone role in Server Settings.";
+    }
+
     // 6. Automatically save configuration to Database
     await upsertGuildConfig({
       guild_id: dbGuildId,
