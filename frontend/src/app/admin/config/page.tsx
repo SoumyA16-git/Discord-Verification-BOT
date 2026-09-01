@@ -10,7 +10,7 @@ import {
   getGuildDiscordData,
   sendVerificationEmbed,
 } from '@/lib/api';
-import { ShieldAlert, CheckCircle2, XCircle, Send, RefreshCw, Sparkles } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, XCircle, Send, RefreshCw, Sparkles, AlertTriangle } from 'lucide-react';
 
 function ConfigContent() {
   const searchParams = useSearchParams();
@@ -240,7 +240,35 @@ function ConfigContent() {
       {saveSuccess && <div className="alert alert-success">Configuration saved successfully!</div>}
 
       <div className="card card-wide">
-        <form onSubmit={handleSave}>
+        <form
+          className="admin-form"
+          onSubmit={handleSave}
+        >
+          {/* CRITICAL ROLE HIERARCHY WARNING */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '12px',
+              padding: '16px',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              borderRadius: 'var(--radius-md)',
+              color: '#f8fafc',
+              marginBottom: '1.5rem',
+            }}
+          >
+            <AlertTriangle style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }} size={24} />
+            <div>
+              <h4 style={{ margin: '0 0 6px 0', fontSize: '1.05rem', color: '#ef4444', fontWeight: 600 }}>
+                Important: Discord Role Hierarchy
+              </h4>
+              <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: 1.5, color: '#cbd5e1' }}>
+                Please ensure that the <strong>911 - Verification BOT</strong> role is placed at the <strong>very top</strong> of your role list in your Discord Server Settings. The bot cannot manage or assign roles that are higher than its own role.
+              </p>
+            </div>
+          </div>
+
           <div
             className="form-group"
             style={{
