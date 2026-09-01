@@ -13,7 +13,8 @@ export function createSignedSessionToken(
   sessionId: string,
   guildId: string,
   expiresAt: Date,
-  secret: string
+  secret: string,
+  interactionToken?: string
 ): string {
   const payload = Buffer.from(
     JSON.stringify({
@@ -21,6 +22,7 @@ export function createSignedSessionToken(
       gid: guildId,
       exp: expiresAt.getTime(),
       nonce: generateRandomToken(8),
+      itk: interactionToken,
     })
   ).toString('base64url');
 
@@ -37,6 +39,7 @@ export interface VerifiedSignedToken {
   guildId: string;
   expiresAt: Date;
   isExpired: boolean;
+  interactionToken?: string;
 }
 
 export function verifySignedSessionToken(
@@ -82,6 +85,7 @@ export function verifySignedSessionToken(
       guildId: decoded.gid,
       expiresAt,
       isExpired,
+      interactionToken: decoded.itk,
     };
   } catch {
     return null;

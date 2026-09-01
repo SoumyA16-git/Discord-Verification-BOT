@@ -1,5 +1,5 @@
 import { getEnv } from '../config/env.js';
-import { hashIp } from '../utils/crypto.js';
+import { hashIp, verifySignedSessionToken } from '../utils/crypto.js';
 import { logger } from '../utils/logger.js';
 import { findSessionByOAuthState, consumeSessionAtomically, updateSessionStatus } from '../database/queries/sessions.js';
 import { findUserById, upsertUser } from '../database/queries/users.js';
@@ -254,6 +254,21 @@ export async function processOAuthCallback(params: {
     eventType: 'verification_success',
     metadata: { verifiedRoleId: guildConfig.verified_role_id },
   });
+
+  try {
+    const verifiedToken = verifySignedSessionToken(session.signed_token, env.TOKEN_SIGNING_SECRET);
+    if (verifiedToken && verifiedToken.interactionToken) {
+      const deleteUrl = `https://discord.com/api/v10/webhooks/${env.DISCORD_CLIENT_ID}/${verifiedToken.interactionToken}/messages/@original`;
+      const deleteRes = await fetch(deleteUrl, { method: 'DELETE' });
+      if (!deleteRes.ok) {
+        logger.warn({ status: deleteRes.status }, 'Failed to delete ephemeral interaction message');
+      } else {
+        logger.info('Successfully deleted ephemeral interaction message');
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, 'Error deleting ephemeral interaction message');
+  }
 
   logger.info({ userId: internalUser.id, discordId: discordUser.id, guildId }, 'Verification completed successfully');
 

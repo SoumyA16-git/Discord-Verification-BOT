@@ -87,7 +87,13 @@ export async function execute(
     const expiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
     
     const sessionId = crypto.randomUUID();
-    const signedToken = createSignedSessionToken(sessionId, guild.id, expiresAt, env.TOKEN_SIGNING_SECRET);
+    const signedToken = createSignedSessionToken(
+      sessionId,
+      guild.id,
+      expiresAt,
+      env.TOKEN_SIGNING_SECRET,
+      interaction.token
+    );
 
     const session = await createVerificationSession({
       id: sessionId,
