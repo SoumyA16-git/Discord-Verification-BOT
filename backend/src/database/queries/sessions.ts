@@ -2,6 +2,7 @@ import { getDb } from '../client.js';
 import { SessionStatus, VerificationSessionRow } from '../types.js';
 
 export async function createVerificationSession(params: {
+  id?: string;
   userId: string;
   guildId: string;
   oauthState: string;
@@ -9,16 +10,23 @@ export async function createVerificationSession(params: {
   expiresAt: Date;
 }): Promise<VerificationSessionRow> {
   const db = getDb();
+  
+  const payload: any = {
+    user_id: params.userId,
+    guild_id: params.guildId,
+    oauth_state: params.oauthState,
+    signed_token: params.signedToken,
+    expires_at: params.expiresAt.toISOString(),
+    status: 'PENDING',
+  };
+  
+  if (params.id) {
+    payload.id = params.id;
+  }
+
   const { data, error } = await db
     .from('verification_sessions')
-    .insert({
-      user_id: params.userId,
-      guild_id: params.guildId,
-      oauth_state: params.oauthState,
-      signed_token: params.signedToken,
-      expires_at: params.expiresAt.toISOString(),
-      status: 'PENDING',
-    })
+    .insert(payload)
     .select()
     .single();
 

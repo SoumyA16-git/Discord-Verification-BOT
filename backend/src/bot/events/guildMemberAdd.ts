@@ -5,6 +5,7 @@ import {
   ButtonStyle,
   TextChannel,
 } from 'discord.js';
+import crypto from 'crypto';
 import { getEnv } from '../../config/env.js';
 import { upsertUser } from '../../database/queries/users.js';
 import { upsertGuild } from '../../database/queries/guilds.js';
@@ -50,9 +51,13 @@ export async function handleGuildMemberAdd(member: GuildMember): Promise<void> {
     const oauthState = generateRandomToken(32);
     const expirationMinutes = config.session_expiration_minutes || 15;
     const expiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
-    const signedToken = createSignedSessionToken(user.id, guild.id, expiresAt, env.TOKEN_SIGNING_SECRET);
+    
+    // Use the native crypto.randomUUID for the session ID
+    const sessionId = crypto.randomUUID();
+    const signedToken = createSignedSessionToken(sessionId, guild.id, expiresAt, env.TOKEN_SIGNING_SECRET);
 
     const session = await createVerificationSession({
+      id: sessionId,
       userId: user.id,
       guildId: guild.id,
       oauthState,
