@@ -542,8 +542,17 @@ router.get('/overview', requireAdmin, async (req: Request, res: Response) => {
 router.get('/members', requireAdmin, async (req: Request, res: Response) => {
   const query = ((req.query.q as string) || '').trim();
   const guildId = await resolveAdminGuildId(req);
+  const page = Math.max(1, parseInt(req.query.page as string) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+  const offset = (page - 1) * limit;
   const db = getDb();
 
+  // Build base query for total count
+  let countQuery = db
+    .from('users')
+    .select('id', { count: 'exact', head: true });
+
+  // Build data query — left-join verifications filtered to the active guild
   let membersQuery = db
     .from('users')
     .select(`
@@ -551,25 +560,46 @@ router.get('/members', requireAdmin, async (req: Request, res: Response) => {
       discord_id,
       username,
       created_at,
-      verifications!left(status, role_assigned, verified_at, updated_at)
+      verifications!left(status, role_assigned, verified_at, updated_at, guild_id)
     `)
-    .limit(50);
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
 
+  // Apply search filter to both queries
   if (query) {
     if (/^\d{17,20}$/.test(query)) {
       membersQuery = membersQuery.eq('discord_id', query);
+      countQuery = countQuery.eq('discord_id', query);
     } else {
       membersQuery = membersQuery.ilike('username', `%${query}%`);
+      countQuery = countQuery.ilike('username', `%${query}%`);
     }
   }
 
-  const { data: members, error } = await membersQuery;
+  const [{ data: rawMembers, error }, { count: total }] = await Promise.all([
+    membersQuery,
+    countQuery,
+  ]);
 
   if (error) {
     return res.status(500).json({ error: { code: 'DB_ERROR', message: error.message } });
   }
 
-  res.json({ members: members || [] });
+  // Filter verifications to only include entries for the active guild
+  const members = (rawMembers || []).map((m: any) => ({
+    ...m,
+    verifications: guildId
+      ? (m.verifications || []).filter((v: any) => v.guild_id === guildId)
+      : (m.verifications || []),
+  }));
+
+  const totalCount = total ?? 0;
+  res.json({
+    members,
+    total: totalCount,
+    page,
+    totalPages: Math.ceil(totalCount / limit),
+  });
 });
 
 /**

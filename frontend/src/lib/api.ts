@@ -84,10 +84,11 @@ export async function getAdminOverview(token: string, guildId?: string) {
   return res.json();
 }
 
-export async function getAdminMembers(token: string, query?: string, guildId?: string) {
+export async function getAdminMembers(token: string, query?: string, guildId?: string, page = 1) {
   const url = new URL(`${BACKEND_URL}/api/admin/members`);
   if (query) url.searchParams.set('q', query);
   if (guildId) url.searchParams.set('guildId', guildId);
+  url.searchParams.set('page', String(page));
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}` },

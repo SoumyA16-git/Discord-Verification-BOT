@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   getAdminMemberDetail,
@@ -11,9 +11,13 @@ import {
 } from '@/lib/api';
 import { ArrowLeft, Check, Copy } from 'lucide-react';
 
-export default function MemberDetailPage() {
+function MemberDetailContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const userId = params.userId as string;
+
+  // Carry the active guildId so the API fetches the right guild's verification data
+  const guildId = searchParams.get('guildId') || undefined;
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -24,9 +28,10 @@ export default function MemberDetailPage() {
 
   const fetchDetail = async () => {
     setLoading(true);
+    setError(null);
     const token = localStorage.getItem('dverif_admin_token') || '';
     try {
-      const res = await getAdminMemberDetail(token, userId);
+      const res = await getAdminMemberDetail(token, userId, guildId);
       if (res.error) {
         setError(res.error.message);
       } else {
@@ -41,12 +46,13 @@ export default function MemberDetailPage() {
 
   useEffect(() => {
     if (userId) fetchDetail();
-  }, [userId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, guildId]);
 
   const handleRevoke = async () => {
-    if (!confirm('Are you sure you want to revoke this member\'s verification?')) return;
+    if (!confirm("Are you sure you want to revoke this member's verification?")) return;
     const token = localStorage.getItem('dverif_admin_token') || '';
-    const res = await adminRevokeUser(token, userId, 'Admin Revocation');
+    const res = await adminRevokeUser(token, userId, 'Admin Revocation', guildId);
     if (res.success) {
       setActionSuccess('Verification successfully revoked.');
       fetchDetail();
@@ -58,7 +64,7 @@ export default function MemberDetailPage() {
   const handleManualVerify = async () => {
     if (!confirm('Manual override will immediately assign the verified role on Discord. Proceed?')) return;
     const token = localStorage.getItem('dverif_admin_token') || '';
-    const res = await adminVerifyUser(token, userId);
+    const res = await adminVerifyUser(token, userId, guildId);
     if (res.success) {
       setActionSuccess('Member successfully verified via admin override.');
       fetchDetail();
@@ -69,7 +75,7 @@ export default function MemberDetailPage() {
 
   const handleForceReverify = async () => {
     const token = localStorage.getItem('dverif_admin_token') || '';
-    const res = await adminReverifyUser(token, userId);
+    const res = await adminReverifyUser(token, userId, guildId);
     if (res.success && res.verifyUrl) {
       setReverifyLink(res.verifyUrl);
       setActionSuccess('New verification link generated.');
@@ -101,7 +107,10 @@ export default function MemberDetailPage() {
     return (
       <div className="card card-wide">
         <div className="alert alert-danger">{error || 'User not found.'}</div>
-        <Link href="/admin/members" className="btn btn-secondary">
+        <Link
+          href={`/admin/members${guildId ? `?guildId=${guildId}` : ''}`}
+          className="btn btn-secondary"
+        >
           Back to Members
         </Link>
       </div>
@@ -124,7 +133,7 @@ export default function MemberDetailPage() {
       >
         <div>
           <Link
-            href="/admin/members"
+            href={`/admin/members${guildId ? `?guildId=${guildId}` : ''}`}
             className="text-sm highlight"
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.5rem' }}
           >
@@ -156,7 +165,16 @@ export default function MemberDetailPage() {
       {actionSuccess && <div className="alert alert-success">{actionSuccess}</div>}
 
       {reverifyLink && (
-        <div className="alert alert-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div
+          className="alert alert-info"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '1rem',
+          }}
+        >
           <div style={{ wordBreak: 'break-all', fontSize: '0.85rem' }}>
             <strong>Direct Link:</strong> {reverifyLink}
           </div>
@@ -176,7 +194,8 @@ export default function MemberDetailPage() {
               className={`badge ${
                 verification && verification.status === 'VERIFIED'
                   ? 'badge-verified'
-                  : verification && (verification.status === 'REVOKED' || verification.status === 'FAILED')
+                  : verification &&
+                    (verification.status === 'REVOKED' || verification.status === 'FAILED')
                   ? 'badge-failed'
                   : 'badge-pending'
               }`}
@@ -192,7 +211,11 @@ export default function MemberDetailPage() {
 
           <div>
             <div className="stat-title">Verified At</div>
-            <div>{verification && verification.verified_at ? new Date(verification.verified_at).toLocaleString() : 'Never'}</div>
+            <div>
+              {verification && verification.verified_at
+                ? new Date(verification.verified_at).toLocaleString()
+                : 'Never'}
+            </div>
           </div>
 
           <div>
@@ -219,9 +242,13 @@ export default function MemberDetailPage() {
               {attempts && attempts.length > 0 ? (
                 attempts.map((att: any) => (
                   <tr key={att.id}>
-                    <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{new Date(att.created_at).toLocaleString()}</td>
+                    <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                      {new Date(att.created_at).toLocaleString()}
+                    </td>
                     <td>
-                      <span className={`badge ${att.result === 'SUCCESS' ? 'badge-verified' : 'badge-failed'}`}>
+                      <span
+                        className={`badge ${att.result === 'SUCCESS' ? 'badge-verified' : 'badge-failed'}`}
+                      >
                         {att.result}
                       </span>
                     </td>
@@ -259,11 +286,15 @@ export default function MemberDetailPage() {
               {auditLogs && auditLogs.length > 0 ? (
                 auditLogs.map((log: any) => (
                   <tr key={log.id}>
-                    <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{new Date(log.created_at).toLocaleString()}</td>
+                    <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                      {new Date(log.created_at).toLocaleString()}
+                    </td>
                     <td>
                       <span className="badge badge-pending">{log.event_type.replace(/_/g, ' ')}</span>
                     </td>
-                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{JSON.stringify(log.metadata)}</td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                      {JSON.stringify(log.metadata)}
+                    </td>
                   </tr>
                 ))
               ) : (
@@ -278,5 +309,22 @@ export default function MemberDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MemberDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="center-container">
+          <div className="card">
+            <div className="spinner" />
+            <p>Loading member profile...</p>
+          </div>
+        </div>
+      }
+    >
+      <MemberDetailContent />
+    </Suspense>
   );
 }
