@@ -247,7 +247,7 @@ export function VerificationProgress({ code, state }: VerificationProgressProps)
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#08090d',
+      backgroundColor: 'var(--bg-pitch)',
         padding: '1.5rem',
       }}
     >
@@ -256,9 +256,6 @@ export function VerificationProgress({ code, state }: VerificationProgressProps)
         style={{
           maxWidth: '460px',
           width: '100%',
-          backgroundColor: '#0d0f17',
-          border: '1px solid rgba(255, 255, 255, 0.09)',
-          borderRadius: '16px',
           padding: '2rem 1.75rem',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 40px -15px rgba(88, 101, 242, 0.15)',
           position: 'relative',

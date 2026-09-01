@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   XCircle,
   Loader2,
+  Check,
 } from 'lucide-react';
 import { VerificationStepConfig, StepStatus } from './types';
 
@@ -32,8 +33,14 @@ export function VerificationStepItem({
 }: VerificationStepItemProps) {
   const shouldReduceMotion = useReducedMotion();
 
+  const isWaiting = status === 'waiting';
+  const isChecking = status === 'checking';
+  const isSuccess = status === 'success';
+  const isFailed = status === 'failed';
+
   // Pick default icon based on step type
   const getStepIcon = () => {
+    if (isSuccess) return <Check size={18} />;
     switch (step.id) {
       case 'discord_identity':
         return <UserCheck size={18} />;
@@ -52,22 +59,17 @@ export function VerificationStepItem({
     }
   };
 
-  const isWaiting = status === 'waiting';
-  const isChecking = status === 'checking';
-  const isSuccess = status === 'success';
-  const isFailed = status === 'failed';
-
   // Dynamic card styling based on state
   const getBorderColor = () => {
     if (isChecking) return 'rgba(88, 101, 242, 0.45)';
-    if (isSuccess) return 'rgba(16, 185, 129, 0.25)';
+    if (isSuccess) return 'rgba(16, 185, 129, 0.3)';
     if (isFailed) return 'rgba(239, 68, 68, 0.4)';
     return 'rgba(255, 255, 255, 0.06)';
   };
 
   const getBackground = () => {
     if (isChecking) return 'rgba(88, 101, 242, 0.05)';
-    if (isSuccess) return 'rgba(16, 185, 129, 0.03)';
+    if (isSuccess) return '#0a1f16';
     if (isFailed) return 'rgba(239, 68, 68, 0.04)';
     return 'rgba(255, 255, 255, 0.02)';
   };

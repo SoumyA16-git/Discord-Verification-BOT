@@ -97,19 +97,15 @@ function VerifyContent() {
       alignItems: 'center',
       justifyContent: 'center',
       padding: '2rem',
-      backgroundColor: '#09090b',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      backgroundColor: 'var(--bg-pitch)',
+      fontFamily: 'var(--font-sans)'
     }}>
       <div className="card" style={{
         width: '100%',
-        maxWidth: '440px',
-        backgroundColor: '#18181b',
-        padding: '2.5rem',
-        borderRadius: '12px',
-        border: '1px solid #27272a',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        maxWidth: '460px',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 40px -15px rgba(88, 101, 242, 0.15)',
       }}>
         {children}
       </div>

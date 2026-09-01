@@ -37,7 +37,7 @@ export function VerificationConnector({ isCompleted, isActive }: VerificationCon
         style={{
           width: '100%',
           height: '100%',
-          background: 'linear-gradient(to bottom, #10b981, #5865f2)',
+          background: 'linear-gradient(to bottom, #5865f2, #10b981)',
           transformOrigin: 'top',
         }}
       />

@@ -21,8 +21,8 @@ export function VerificationSuccess({
   const shouldReduceMotion = useReducedMotion();
 
   const discordAppUrl = guildId
-    ? `https://discord.com/channels/${guildId}`
-    : 'https://discord.com/app';
+    ? `discord://-/channels/${guildId}`
+    : 'discord://-/app';
 
   return (
     <motion.div
