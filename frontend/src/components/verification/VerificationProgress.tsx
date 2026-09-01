@@ -296,26 +296,6 @@ export function VerificationProgress({ code, state }: VerificationProgressProps)
             >
               {/* Header */}
               <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
-                <div
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 10px',
-                    borderRadius: '9999px',
-                    backgroundColor: 'rgba(88, 101, 242, 0.12)',
-                    border: '1px solid rgba(88, 101, 242, 0.25)',
-                    color: '#5865f2',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    marginBottom: '0.75rem',
-                    letterSpacing: '0.02em',
-                  }}
-                >
-                  <Sparkles size={12} />
-                  <span>SECURE VERIFICATION GATEWAY</span>
-                </div>
-
                 <h1
                   style={{
                     fontSize: '1.35rem',
