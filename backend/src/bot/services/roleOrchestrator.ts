@@ -138,6 +138,36 @@ export async function autoProvisionServerRoles(guild: Guild, dbGuildId: string):
       if (!hierarchyWarning) hierarchyWarning = "Failed to lock down channels. Please manually turn off 'View Channels' for the @everyone role in Server Settings.";
     }
 
+    // 5.8 Post persistent verification button to the channel
+    try {
+      if (verifyChannel && verifyChannel.isTextBased()) {
+        const textChannel = verifyChannel as import('discord.js').TextChannel;
+        // Check if there's already a message to avoid spamming on re-setup
+        const messages = await textChannel.messages.fetch({ limit: 1 }).catch(() => null);
+        if (!messages || messages.size === 0) {
+          const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+          const embed = new EmbedBuilder()
+            .setTitle('Server Verification')
+            .setColor(0x5865F2)
+            .setDescription('To gain full access to the server, you must verify your account.\n\nClick the button below to receive your unique verification link securely in this channel.')
+            .setFooter({ text: 'Powered by 911 - Verification BOT' });
+          
+          const button = new ButtonBuilder()
+            .setCustomId('start_verification')
+            .setLabel('Verify Account')
+            .setEmoji('✅')
+            .setStyle(ButtonStyle.Primary);
+            
+          const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
+          
+          await textChannel.send({ embeds: [embed], components: [row] });
+          logger.info({ guildId: guild.id }, 'Posted persistent verification button to channel');
+        }
+      }
+    } catch (err) {
+      logger.warn({ err, guildId: guild.id }, 'Failed to post persistent verification button');
+    }
+
     // 6. Automatically save configuration to Database
     await upsertGuildConfig({
       guild_id: dbGuildId,

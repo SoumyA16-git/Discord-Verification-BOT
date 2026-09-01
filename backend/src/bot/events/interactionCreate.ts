@@ -24,6 +24,22 @@ for (const cmd of commands) {
 }
 
 export async function handleInteraction(interaction: Interaction): Promise<void> {
+  if (interaction.isButton()) {
+    if (interaction.customId === 'start_verification') {
+      try {
+        await verifyCommand.execute(interaction);
+      } catch (err) {
+        logger.error({ err }, 'Error handling persistent verify button click');
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp({ content: 'An error occurred.', ephemeral: true }).catch(() => {});
+        } else {
+          await interaction.reply({ content: 'An error occurred.', ephemeral: true }).catch(() => {});
+        }
+      }
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
   const command = commandMap.get(interaction.commandName);

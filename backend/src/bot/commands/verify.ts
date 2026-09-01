@@ -4,7 +4,9 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ButtonInteraction,
 } from 'discord.js';
+import crypto from 'crypto';
 import { getEnv } from '../../config/env.js';
 import { upsertUser } from '../../database/queries/users.js';
 import { upsertGuild } from '../../database/queries/guilds.js';
@@ -20,7 +22,7 @@ export const data = new SlashCommandBuilder()
   .setDescription('Start the verification process to gain verified server access.')
   .setDMPermission(false);
 
-export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+export async function execute(interaction: ChatInputCommandInteraction | ButtonInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   if (!interaction.guild || !interaction.member) {
@@ -69,9 +71,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const oauthState = generateRandomToken(32);
     const expirationMinutes = config.session_expiration_minutes || 15;
     const expiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
-    const signedToken = createSignedSessionToken(user.id, guild.id, expiresAt, env.TOKEN_SIGNING_SECRET);
+    
+    const sessionId = crypto.randomUUID();
+    const signedToken = createSignedSessionToken(sessionId, guild.id, expiresAt, env.TOKEN_SIGNING_SECRET);
 
     const session = await createVerificationSession({
+      id: sessionId,
       userId: user.id,
       guildId: guild.id,
       oauthState,
@@ -98,7 +103,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       guildId: guild.id,
       userId: user.id,
       eventType: 'verification_started',
-      metadata: { sessionId: session.id, source: 'slash_command' },
+      metadata: { sessionId: session.id, source: interaction.isButton() ? 'persistent_button' : 'slash_command' },
     });
   } catch (err) {
     logger.error({ err, discordUserId, discordGuildId }, 'Error executing /verify command');
