@@ -96,33 +96,38 @@ export async function autoProvisionServerRoles(guild: Guild, dbGuildId: string):
         (c.name.toLowerCase().includes('verif') || c.name.toLowerCase().includes('verify'))
     );
 
+    const verifyChannelOverwrites = [
+      {
+        id: guild.id, // @everyone
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+        deny: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions],
+      },
+      {
+        id: verifiedRole.id,
+        deny: [PermissionFlagsBits.ViewChannel], // Hide once verified
+      },
+      {
+        id: me.id,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.EmbedLinks,
+          PermissionFlagsBits.ManageMessages,
+        ],
+      },
+    ];
+
     if (!verifyChannel) {
       logger.info({ guildId: guild.id }, 'Creating "#verification" gate channel');
       verifyChannel = await guild.channels.create({
         name: 'verification',
         type: ChannelType.GuildText,
         reason: 'Auto-provisioned verification channel by 911 - Verification BOT',
-        permissionOverwrites: [
-          {
-            id: guild.id, // @everyone
-            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
-            deny: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions],
-          },
-          {
-            id: verifiedRole.id,
-            deny: [PermissionFlagsBits.ViewChannel], // Hide once verified
-          },
-          {
-            id: me.id,
-            allow: [
-              PermissionFlagsBits.ViewChannel,
-              PermissionFlagsBits.SendMessages,
-              PermissionFlagsBits.EmbedLinks,
-              PermissionFlagsBits.ManageMessages,
-            ],
-          },
-        ],
+        permissionOverwrites: verifyChannelOverwrites,
       });
+    } else {
+      logger.info({ guildId: guild.id }, 'Updating permissions for existing "#verification" channel');
+      await (verifyChannel as TextChannel).permissionOverwrites.set(verifyChannelOverwrites, 'Enforcing verification gate permissions');
     }
 
     // 5.5 Disable ViewChannel for @everyone role so other channels are hidden by default
