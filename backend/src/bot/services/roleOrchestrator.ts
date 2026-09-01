@@ -143,6 +143,54 @@ export async function autoProvisionServerRoles(guild: Guild, dbGuildId: string):
       if (!hierarchyWarning) hierarchyWarning = "Failed to lock down channels. Please manually turn off 'View Channels' for the @everyone role in Server Settings.";
     }
 
+    // 5.6 Disable ViewChannel for ALL onboarding / extra roles
+    // (Discord onboarding assigns roles to new members — we must lock them out too)
+    try {
+      // Roles we must never touch
+      const skippedRoleIds = new Set([
+        guild.id,              // @everyone — already handled in step 5.5
+        verifiedRole.id,       // Our Verified role — must keep ViewChannel ON
+        unverifiedRole.id,     // Our Unverified role
+        me.roles.highest.id,   // Bot's own highest role
+      ]);
+
+      // All non-managed, non-skipped roles — these are the onboarding / member roles
+      const rolesToLock = guild.roles.cache.filter(
+        (r) => !r.managed && !skippedRoleIds.has(r.id)
+      );
+
+      let lockedCount = 0;
+      for (const [, role] of rolesToLock) {
+        try {
+          if (role.permissions.has(PermissionFlagsBits.ViewChannel)) {
+            const newPerms = role.permissions.remove(PermissionFlagsBits.ViewChannel);
+            await role.setPermissions(
+              newPerms,
+              'Onboarding role lockdown by 911 - Verification BOT'
+            );
+            lockedCount++;
+            logger.info(
+              { guildId: guild.id, roleId: role.id, roleName: role.name },
+              'Locked ViewChannel for onboarding role'
+            );
+          }
+        } catch (roleErr) {
+          logger.warn(
+            { roleErr, guildId: guild.id, roleId: role.id, roleName: role.name },
+            'Could not lock ViewChannel for role (hierarchy or permission issue — skipping)'
+          );
+        }
+      }
+
+      if (lockedCount > 0) {
+        logger.info({ guildId: guild.id, lockedCount }, 'Onboarding role lockdown completed');
+      } else {
+        logger.info({ guildId: guild.id }, 'No onboarding roles needed ViewChannel lockdown');
+      }
+    } catch (err) {
+      logger.warn({ err, guildId: guild.id }, 'Onboarding role lockdown step failed — skipping');
+    }
+
     // 5.8 Post persistent verification button to the channel
     try {
       if (verifyChannel && verifyChannel.isTextBased()) {
